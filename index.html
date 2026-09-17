@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Oil App - Login</title>
+</head>
+<body>
+  <h2>Login</h2>
+  <input id="phone" placeholder="Phone number" />
+  <button onclick="sendOtp()">Send OTP</button>
+  <div id="recaptcha-box"></div>
+
+  <input id="otp" placeholder="Enter OTP" style="display:none" />
+  <button id="verifyBtn" onclick="verifyOtp()" style="display:none">Verify</button>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB7Y4YLhqB0XRJxdcdAILmx9YaUoO6bMXc",
+      authDomain: "oil-distribution-app-bed1f.firebaseapp.com",
+      projectId: "oil-distribution-app-bed1f",
+      storageBucket: "oil-distribution-app-bed1f.firebasestorage.app",
+      messagingSenderId: "359461483648",
+      appId: "1:359461483648:web:38ef78f1a16bf14622a265"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    let confirmObj;
+
+    window.sendOtp = async function () {
+      const phone = document.getElementById("phone").value;
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-box", { size: "invisible" });
+      confirmObj = await signInWithPhoneNumber(auth, "+91" + phone, window.recaptchaVerifier);
+      document.getElementById("otp").style.display = "block";
+      document.getElementById("verifyBtn").style.display = "block";
+    };
+
+    window.verifyOtp = async function () {
+      const otp = document.getElementById("otp").value;
+      const res = await confirmObj.confirm(otp);
+      const uid = res.user.uid;
+      const userRef = doc(db, "users", uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        await setDoc(userRef, { role: "customer", createdAt: Date.now() });
+        alert("Logged in as customer");
+      } else {
+        alert("Logged in as " + userSnap.data().role);
+      }
+    };
+  </script>
+</body>
+  </html>
