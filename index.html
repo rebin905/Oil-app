@@ -33,27 +33,36 @@
     let confirmObj;
 
     window.sendOtp = async function () {
-      const phone = document.getElementById("phone").value;
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-box", { size: "invisible" });
-      confirmObj = await signInWithPhoneNumber(auth, "+91" + phone, window.recaptchaVerifier);
-      document.getElementById("otp").style.display = "block";
-      document.getElementById("verifyBtn").style.display = "block";
+      try {
+        const phone = document.getElementById("phone").value;
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-box", { size: "invisible" });
+        confirmObj = await signInWithPhoneNumber(auth, "+91" + phone, window.recaptchaVerifier);
+        document.getElementById("otp").style.display = "block";
+        document.getElementById("verifyBtn").style.display = "block";
+        alert("OTP sent (or check test number setup)");
+      } catch (err) {
+        alert("ERROR: " + err.code + " - " + err.message);
+      }
     };
 
     window.verifyOtp = async function () {
-      const otp = document.getElementById("otp").value;
-      const res = await confirmObj.confirm(otp);
-      const uid = res.user.uid;
-      const userRef = doc(db, "users", uid);
-      const userSnap = await getDoc(userRef);
+      try {
+        const otp = document.getElementById("otp").value;
+        const res = await confirmObj.confirm(otp);
+        const uid = res.user.uid;
+        const userRef = doc(db, "users", uid);
+        const userSnap = await getDoc(userRef);
 
-      if (!userSnap.exists()) {
-        await setDoc(userRef, { role: "customer", createdAt: Date.now() });
-        alert("Logged in as customer");
-      } else {
-        alert("Logged in as " + userSnap.data().role);
+        if (!userSnap.exists()) {
+          await setDoc(userRef, { role: "customer", createdAt: Date.now() });
+          alert("Logged in as customer");
+        } else {
+          alert("Logged in as " + userSnap.data().role);
+        }
+      } catch (err) {
+        alert("ERROR: " + err.code + " - " + err.message);
       }
     };
   </script>
 </body>
-  </html>
+</html>
