@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Branch</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial; margin: 0; background: #f4f5f7; }
+  header { background: #ff6600; color: white; padding: 16px; font-size: 18px; font-weight: bold; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px; }
+  .card { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+  .card .num { font-size: 22px; font-weight: bold; color: #ff6600; }
+  .card .label { font-size: 13px; color: #666; margin-top: 4px; }
+  .section { padding: 16px; }
+  .section h3 { margin-bottom: 8px; }
+  input { width: 100%; padding: 10px; margin: 6px 0; border: 1px solid #ddd; border-radius: 6px; }
+  button { padding: 10px 20px; background: #ff6600; color: white; border: none; border-radius: 6px; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; margin-top: 10px; }
+  th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
+  th { background: #fafafa; }
+  .badge { padding: 3px 8px; border-radius: 12px; font-size: 12px; }
+  .pending { background: #fff3cd; color: #856404; }
+  .delivered { background: #d4edda; color: #155724; }
+  .free { background: #d4edda; color: #155724; }
+  .busy { background: #f8d7da; color: #721c24; }
+  .msg { font-size: 13px; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<header>Branch Dashboard</header>
+
+<div class="stats">
+  <div class="card"><div class="num" id="totalOrders">0</div><div class="label">Total Orders</div></div>
+  <div class="card"><div class="num" id="pendingOrders">0</div><div class="label">Pending</div></div>
+  <div class="card"><div class="num" id="deliveredOrders">0</div><div class="label">Delivered</div></div>
+  <div class="card"><div class="num" id="totalDistributors">0</div><div class="label">Distributors</div></div>
+</div>
+
+<div class="section">
+  <h3>Add Distributor</h3>
+  <input id="dName" placeholder="Distributor name" />
+  <input id="dPhone" placeholder="Phone number" />
+  <button onclick="addDistributor()">Add Distributor</button>
+  <p class="msg" id="dMsg"></p>
+</div>
+
+<div class="section">
+  <h3>Distributors</h3>
+  <table>
+    <tr><th>Name</th><th>Phone</th><th>Status</th></tr>
+    <tbody id="distTable"><tr><td colspan="3" style="text-align:center;color:#999;">No distributors</td></tr></tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h3>Orders</h3>
+  <table>
+    <tr><th>Order ID</th><th>Distributor</th><th>Status</th></tr>
+    <tbody id="orderTable"><tr><td colspan="3" style="text-align:center;color:#999;">No orders</td></tr></tbody>
+  </table>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyB7Y4YLhqB0XRJxdcdAILmx9YaUoO6bMXc",
+    authDomain: "oil-distribution-app-bed1f.firebaseapp.com",
+    projectId: "oil-distribution-app-bed1f",
+    storageBucket: "oil-distribution-app-bed1f.firebasestorage.app",
+    messagingSenderId: "359461483648",
+    appId: "1:359461483648:web:38ef78f1a16bf14622a265"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // NOTE: branchId should come from logged-in user's data. Hardcoded placeholder for now.
+  const branchId = "DEMO_BRANCH_ID";
+
+  window.addDistributor = async function() {
+    const name = document.getElementById("dName").value;
+    const phone = document.getElementById("dPhone").value;
+    if (!name || !phone) { document.getElementById("dMsg").innerText = "Fill all fields"; return; }
+    await addDoc(collection(db, "distributors"), { name, phone, branchId, status: "free", createdAt: Date.now() });
+    document.getElementById("dMsg").innerText = "Distributor added!";
+    document.getElementById("dName").value = "";
+    document.getElementById("dPhone").value = "";
+    loadDistributors();
+  };
+
+  async function loadDistributors() {
+    const snap = await getDocs(collection(db, "distributors"));
+    let rows = "";
+    let count = 0;
+    snap.forEach(doc => {
+      const d = doc.data();
+      count++;
+      rows += `<tr><td>${d.name}</td><td>${d.phone}</td><td><span class="badge ${d.status}">${d.status}</span></td></tr>`;
+    });
+    document.getElementById("totalDistributors").innerText = count;
+    if (rows) document.getElementById("distTable").innerHTML = rows;
+  }
+
+  async function loadOrders() {
+    const snap = await getDocs(collection(db, "orders"));
+    let pending = 0, delivered = 0;
+    let rows = "";
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (d.status === "delivered") delivered++; else pending++;
+      rows += `<tr><td>${doc.id.slice(0,8)}</td><td>${d.distributorId || "-"}</td><td><span class="badge ${d.status === 'delivered' ? 'delivered' : 'pending'}">${d.status}</span></td></tr>`;
+    });
+    document.getElementById("totalOrders").innerText = snap.size;
+    document.getElementById("pendingOrders").innerText = pending;
+    document.getElementById("deliveredOrders").innerText = delivered;
+    if (rows) document.getElementById("orderTable").innerHTML = rows;
+  }
+
+  loadDistributors();
+  loadOrders();
+</script>
+
+</body>
+</html>
