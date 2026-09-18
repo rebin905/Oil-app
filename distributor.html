@@ -45,7 +45,7 @@
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, addDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyB7Y4YLhqB0XRJxdcdAILmx9YaUoO6bMXc",
@@ -59,8 +59,11 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // NOTE: distributorId should come from logged-in user's data. Hardcoded placeholder for now.
-  const distributorId = "DEMO_DIST_ID";
+  const distributorId = localStorage.getItem("distributorId") || "";
+
+  if (!distributorId) {
+    document.body.innerHTML = "<p style='padding:20px;'>No distributor account linked. Please login again or contact admin.</p>";
+  }
 
   window.startScan = function() {
     const qr = new Html5Qrcode("reader");
@@ -105,18 +108,16 @@
   }
 
   async function loadOrders() {
-    const snap = await getDocs(collection(db, "orders"));
+    const snap = await getDocs(query(collection(db, "orders"), where("distributorId", "==", distributorId)));
     let rows = "";
     snap.forEach(d => {
       const data = d.data();
-      if (data.distributorId === distributorId) {
-        rows += `<tr><td>${d.id.slice(0,8)}</td><td><span class="badge ${data.status === 'delivered' ? 'delivered' : 'pending'}">${data.status}</span></td></tr>`;
-      }
+      rows += `<tr><td>${d.id.slice(0,8)}</td><td><span class="badge ${data.status === 'delivered' ? 'delivered' : 'pending'}">${data.status}</span></td></tr>`;
     });
     if (rows) document.getElementById("orderTable").innerHTML = rows;
   }
 
-  loadOrders();
+  if (distributorId) loadOrders();
 </script>
 
 </body>
