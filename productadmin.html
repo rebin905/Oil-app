@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Product Admin</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial; margin: 0; background: #f4f5f7; }
+  header { background: #ff6600; color: white; padding: 16px; font-size: 18px; font-weight: bold; }
+  .tabs { display: flex; background: white; border-bottom: 1px solid #eee; }
+  .tab { flex: 1; text-align: center; padding: 12px; font-size: 14px; cursor: pointer; }
+  .tab.active { color: #ff6600; border-bottom: 3px solid #ff6600; font-weight: bold; }
+  .panel { display: none; padding: 16px; }
+  .panel.active { display: block; }
+  input, select { width: 100%; padding: 10px; margin: 6px 0; border: 1px solid #ddd; border-radius: 6px; }
+  button { padding: 10px 20px; background: #ff6600; color: white; border: none; border-radius: 6px; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; margin-top: 12px; }
+  th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
+  th { background: #fafafa; }
+  .msg { font-size: 13px; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<header>Product Admin</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('products')">Products</div>
+  <div class="tab" onclick="showTab('branches')">Branches</div>
+</div>
+
+<div id="products" class="panel active">
+  <h3>Add Product</h3>
+  <input id="pName" placeholder="Product name" />
+  <input id="pStock" placeholder="Stock quantity" type="number" />
+  <input id="pPrice" placeholder="Price" type="number" />
+  <button onclick="addProduct()">Add Product</button>
+  <p class="msg" id="pMsg"></p>
+
+  <h3>Product List</h3>
+  <table>
+    <tr><th>Name</th><th>Stock</th><th>Price</th></tr>
+    <tbody id="productTable"><tr><td colspan="3" style="text-align:center;color:#999;">No products</td></tr></tbody>
+  </table>
+</div>
+
+<div id="branches" class="panel">
+  <h3>Add Branch</h3>
+  <input id="bName" placeholder="Branch name" />
+  <input id="bDistrict" placeholder="District" />
+  <button onclick="addBranch()">Add Branch</button>
+  <p class="msg" id="bMsg"></p>
+
+  <h3>Branch List</h3>
+  <table>
+    <tr><th>Name</th><th>District</th><th>ID</th></tr>
+    <tbody id="branchTable"><tr><td colspan="3" style="text-align:center;color:#999;">No branches</td></tr></tbody>
+  </table>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyB7Y4YLhqB0XRJxdcdAILmx9YaUoO6bMXc",
+    authDomain: "oil-distribution-app-bed1f.firebaseapp.com",
+    projectId: "oil-distribution-app-bed1f",
+    storageBucket: "oil-distribution-app-bed1f.firebasestorage.app",
+    messagingSenderId: "359461483648",
+    appId: "1:359461483648:web:38ef78f1a16bf14622a265"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window.showTab = function(tab) {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    event.target.classList.add("active");
+    document.getElementById(tab).classList.add("active");
+  };
+
+  window.addProduct = async function() {
+    const name = document.getElementById("pName").value;
+    const stock = document.getElementById("pStock").value;
+    const price = document.getElementById("pPrice").value;
+    if (!name || !stock || !price) { document.getElementById("pMsg").innerText = "Fill all fields"; return; }
+    await addDoc(collection(db, "products"), { name, stock: Number(stock), price: Number(price), createdAt: Date.now() });
+    document.getElementById("pMsg").innerText = "Product added!";
+    document.getElementById("pName").value = "";
+    document.getElementById("pStock").value = "";
+    document.getElementById("pPrice").value = "";
+    loadProducts();
+  };
+
+  window.addBranch = async function() {
+    const name = document.getElementById("bName").value;
+    const district = document.getElementById("bDistrict").value;
+    if (!name || !district) { document.getElementById("bMsg").innerText = "Fill all fields"; return; }
+    const ref = await addDoc(collection(db, "branches"), { name, district, createdAt: Date.now() });
+    document.getElementById("bMsg").innerText = "Branch added! ID: " + ref.id;
+    document.getElementById("bName").value = "";
+    document.getElementById("bDistrict").value = "";
+    loadBranches();
+  };
+
+  async function loadProducts() {
+    const snap = await getDocs(collection(db, "products"));
+    let rows = "";
+    snap.forEach(doc => {
+      const d = doc.data();
+      rows += `<tr><td>${d.name}</td><td>${d.stock}</td><td>₹${d.price}</td></tr>`;
+    });
+    if (rows) document.getElementById("productTable").innerHTML = rows;
+  }
+
+  async function loadBranches() {
+    const snap = await getDocs(collection(db, "branches"));
+    let rows = "";
+    snap.forEach(doc => {
+      const d = doc.data();
+      rows += `<tr><td>${d.name}</td><td>${d.district}</td><td>${doc.id.slice(0,6)}</td></tr>`;
+    });
+    if (rows) document.getElementById("branchTable").innerHTML = rows;
+  }
+
+  loadProducts();
+  loadBranches();
+</script>
+
+</body>
+</html>
