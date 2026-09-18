@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Super Admin</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial; margin: 0; background: #f4f5f7; }
+  header { background: #ff6600; color: white; padding: 16px; font-size: 18px; font-weight: bold; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px; }
+  .card { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+  .card .num { font-size: 24px; font-weight: bold; color: #ff6600; }
+  .card .label { font-size: 13px; color: #666; margin-top: 4px; }
+  .section { padding: 16px; }
+  .section h3 { margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
+  th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
+  th { background: #fafafa; }
+  .badge { padding: 3px 8px; border-radius: 12px; font-size: 12px; }
+  .pending { background: #fff3cd; color: #856404; }
+  .delivered { background: #d4edda; color: #155724; }
+</style>
+</head>
+<body>
+
+<header>Super Admin Dashboard</header>
+
+<div class="stats">
+  <div class="card"><div class="num" id="totalOrders">0</div><div class="label">Total Orders</div></div>
+  <div class="card"><div class="num" id="pendingOrders">0</div><div class="label">Pending</div></div>
+  <div class="card"><div class="num" id="deliveredOrders">0</div><div class="label">Delivered</div></div>
+  <div class="card"><div class="num" id="totalEarnings">₹0</div><div class="label">Total Earnings</div></div>
+  <div class="card"><div class="num" id="totalMembers">0</div><div class="label">Total Members</div></div>
+  <div class="card"><div class="num" id="totalBranches">0</div><div class="label">Branches</div></div>
+</div>
+
+<div class="section">
+  <h3>Recent Orders</h3>
+  <table>
+    <tr><th>Order ID</th><th>Branch</th><th>Status</th></tr>
+    <tbody id="ordersTable">
+      <tr><td colspan="3" style="text-align:center; color:#999;">No orders yet</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyB7Y4YLhqB0XRJxdcdAILmx9YaUoO6bMXc",
+    authDomain: "oil-distribution-app-bed1f.firebaseapp.com",
+    projectId: "oil-distribution-app-bed1f",
+    storageBucket: "oil-distribution-app-bed1f.firebasestorage.app",
+    messagingSenderId: "359461483648",
+    appId: "1:359461483648:web:38ef78f1a16bf14622a265"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  async function loadStats() {
+    const usersSnap = await getDocs(collection(db, "users"));
+    document.getElementById("totalMembers").innerText = usersSnap.size;
+
+    const branchesSnap = await getDocs(collection(db, "branches"));
+    document.getElementById("totalBranches").innerText = branchesSnap.size;
+
+    const ordersSnap = await getDocs(collection(db, "orders"));
+    let pending = 0, delivered = 0, earnings = 0;
+    let rows = "";
+    ordersSnap.forEach(doc => {
+      const d = doc.data();
+      if (d.status === "delivered") { delivered++; earnings += d.totalAmount || 0; }
+      else pending++;
+      rows += `<tr><td>${doc.id}</td><td>${d.branchId || "-"}</td><td><span class="badge ${d.status === 'delivered' ? 'delivered' : 'pending'}">${d.status}</span></td></tr>`;
+    });
+    document.getElementById("totalOrders").innerText = ordersSnap.size;
+    document.getElementById("pendingOrders").innerText = pending;
+    document.getElementById("deliveredOrders").innerText = delivered;
+    document.getElementById("totalEarnings").innerText = "₹" + earnings;
+    if (ordersSnap.size > 0) document.getElementById("ordersTable").innerHTML = rows;
+  }
+
+  loadStats();
+</script>
+
+</body>
+</html>
