@@ -53,7 +53,7 @@
   <div id="invoicesList"><p style="color:#999;">No invoices yet</p></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -117,8 +117,8 @@
 
     msg.innerText = "Order placed! ID: " + orderRef.id;
     const qrBox = document.getElementById("qrBox");
-    qrBox.innerHTML = "<canvas id='qrCanvas'></canvas>";
-    QRCode.toCanvas(document.getElementById("qrCanvas"), orderRef.id, { width: 200 });
+    qrBox.innerHTML = "";
+    new QRCode(qrBox, { text: orderRef.id, width: 200, height: 200 });
   };
 
   async function loadOrders() {
