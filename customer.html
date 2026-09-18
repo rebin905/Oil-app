@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Customer</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial; margin: 0; background: #f4f5f7; }
+  header { background: #ff6600; color: white; padding: 16px; font-size: 18px; font-weight: bold; }
+  .tabs { display: flex; background: white; border-bottom: 1px solid #eee; }
+  .tab { flex: 1; text-align: center; padding: 12px; font-size: 14px; cursor: pointer; }
+  .tab.active { color: #ff6600; border-bottom: 3px solid #ff6600; font-weight: bold; }
+  .panel { display: none; padding: 16px; }
+  .panel.active { display: block; }
+  input, select { width: 100%; padding: 10px; margin: 6px 0; border: 1px solid #ddd; border-radius: 6px; }
+  button { padding: 10px 20px; background: #ff6600; color: white; border: none; border-radius: 6px; margin-top: 8px; width: 100%; }
+  .card { background: white; border-radius: 10px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+  .badge { padding: 3px 8px; border-radius: 12px; font-size: 12px; }
+  .pending { background: #fff3cd; color: #856404; }
+  .delivered { background: #d4edda; color: #155724; }
+  #qrBox { text-align: center; margin-top: 16px; }
+  .msg { font-size: 13px; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<header>Customer</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('order')">Place Order</div>
+  <div class="tab" onclick="showTab('myorders')">My Orders</div>
+  <div class="tab" onclick="showTab('invoices')">Invoices</div>
+</div>
+
+<div id="order" class="panel active">
+  <h3>Place Order</h3>
+  <select id="productSelect"><option value="">Select product</option></select>
+  <input id="qty" type="number" placeholder="Quantity" />
+  <input id="district" placeholder="Your district" />
+  <button onclick="placeOrder()">Place Order</button>
+  <p class="msg" id="orderMsg"></p>
+  <div id="qrBox"></div>
+</div>
+
+<div id="myorders" class="panel">
+  <h3>My Orders</h3>
+  <div id="ordersList"><p style="color:#999;">No orders yet</p></div>
+</div>
+
+<div id="invoices" class="panel">
+  <h3>Invoices</h3>
+  <div id="invoicesList"><p style="color:#999;">No invoices yet</p></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyB7Y4YLhqB0XRJxdcdAILmx9YaUoO6bMXc",
+    authDomain: "oil-distribution-app-bed1f.firebaseapp.com",
+    projectId: "oil-distribution-app-bed1f",
+    storageBucket: "oil-distribution-app-bed1f.firebasestorage.app",
+    messagingSenderId: "359461483648",
+    appId: "1:359461483648:web:38ef78f1a16bf14622a265"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  window.showTab = function(tab) {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    event.target.classList.add("active");
+    document.getElementById(tab).classList.add("active");
+    if (tab === "myorders") loadOrders();
+    if (tab === "invoices") loadInvoices();
+  };
+
+  async function loadProducts() {
+    const snap = await getDocs(collection(db, "products"));
+    let opts = '<option value="">Select product</option>';
+    snap.forEach(d => {
+      const p = d.data();
+      opts += `<option value="${d.id}|${p.name}|${p.price}">${p.name} - ₹${p.price}</option>`;
+    });
+    document.getElementById("productSelect").innerHTML = opts;
+  }
+
+  window.placeOrder = async function() {
+    const msg = document.getElementById("orderMsg");
+    const uid = auth.currentUser ? auth.currentUser.uid : "guest";
+    const sel = document.getElementById("productSelect").value;
+    const qty = document.getElementById("qty").value;
+    const district = document.getElementById("district").value;
+    if (!sel || !qty || !district) { msg.innerText = "Fill all fields"; return; }
+    const [productId, name, price] = sel.split("|");
+    const totalAmount = Number(price) * Number(qty);
+
+    const branchesSnap = await getDocs(query(collection(db, "branches"), where("district", "==", district)));
+    let branchId = "";
+    branchesSnap.forEach(b => branchId = b.id);
+    if (!branchId) { msg.innerText = "No branch found for this district"; return; }
+
+    const distSnap = await getDocs(query(collection(db, "distributors"), where("branchId", "==", branchId), where("status", "==", "free")));
+    let distributorId = "";
+    distSnap.forEach(d => distributorId = d.id);
+
+    const orderRef = await addDoc(collection(db, "orders"), {
+      customerId: uid, productId, productName: name, qty: Number(qty), totalAmount,
+      branchId, distributorId, status: "pending", createdAt: Date.now()
+    });
+
+    msg.innerText = "Order placed! ID: " + orderRef.id;
+    const qrBox = document.getElementById("qrBox");
+    qrBox.innerHTML = "<canvas id='qrCanvas'></canvas>";
+    QRCode.toCanvas(document.getElementById("qrCanvas"), orderRef.id, { width: 200 });
+  };
+
+  async function loadOrders() {
+    const uid = auth.currentUser ? auth.currentUser.uid : "guest";
+    const snap = await getDocs(query(collection(db, "orders"), where("customerId", "==", uid)));
+    let html = "";
+    snap.forEach(d => {
+      const o = d.data();
+      html += `<div class="card"><b>${o.productName}</b> x${o.qty}<br>₹${o.totalAmount}<br><span class="badge ${o.status === 'delivered' ? 'delivered' : 'pending'}">${o.status}</span></div>`;
+    });
+    if (html) document.getElementById("ordersList").innerHTML = html;
+  }
+
+  async function loadInvoices() {
+    const uid = auth.currentUser ? auth.currentUser.uid : "guest";
+    const snap = await getDocs(query(collection(db, "order_invoices"), where("customerId", "==", uid)));
+    let html = "";
+    snap.forEach(d => {
+      const inv = d.data();
+      html += `<div class="card">Order: ${inv.orderId.slice(0,8)}<br>Amount: ₹${inv.amount}<br>Delivered: ${new Date(inv.deliveredAt).toLocaleString()}</div>`;
+    });
+    if (html) document.getElementById("invoicesList").innerHTML = html;
+  }
+
+  loadProducts();
+</script>
+
+</body>
+</html>
