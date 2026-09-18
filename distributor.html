@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Distributor</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial; margin: 0; background: #f4f5f7; }
+  header { background: #ff6600; color: white; padding: 16px; font-size: 18px; font-weight: bold; }
+  .section { padding: 16px; }
+  .section h3 { margin-bottom: 8px; }
+  button { padding: 12px 20px; background: #ff6600; color: white; border: none; border-radius: 6px; width: 100%; font-size: 16px; }
+  #reader { width: 100%; margin-top: 12px; }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; margin-top: 10px; }
+  th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
+  th { background: #fafafa; }
+  .badge { padding: 3px 8px; border-radius: 12px; font-size: 12px; }
+  .pending { background: #fff3cd; color: #856404; }
+  .delivered { background: #d4edda; color: #155724; }
+  .msg { font-size: 14px; margin-top: 10px; padding: 10px; border-radius: 6px; }
+  .success { background: #d4edda; color: #155724; }
+  .error { background: #f8d7da; color: #721c24; }
+</style>
+</head>
+<body>
+
+<header>Distributor</header>
+
+<div class="section">
+  <h3>Scan Order QR</h3>
+  <button onclick="startScan()">Start Scan</button>
+  <div id="reader"></div>
+  <p class="msg" id="scanMsg"></p>
+</div>
+
+<div class="section">
+  <h3>My Assigned Orders</h3>
+  <table>
+    <tr><th>Order ID</th><th>Status</th></tr>
+    <tbody id="orderTable"><tr><td colspan="2" style="text-align:center;color:#999;">No orders</td></tr></tbody>
+  </table>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyB7Y4YLhqB0XRJxdcdAILmx9YaUoO6bMXc",
+    authDomain: "oil-distribution-app-bed1f.firebaseapp.com",
+    projectId: "oil-distribution-app-bed1f",
+    storageBucket: "oil-distribution-app-bed1f.firebasestorage.app",
+    messagingSenderId: "359461483648",
+    appId: "1:359461483648:web:38ef78f1a16bf14622a265"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // NOTE: distributorId should come from logged-in user's data. Hardcoded placeholder for now.
+  const distributorId = "DEMO_DIST_ID";
+
+  window.startScan = function() {
+    const qr = new Html5Qrcode("reader");
+    qr.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      async (decodedText) => {
+        qr.stop();
+        await handleScan(decodedText);
+      },
+      (err) => {}
+    );
+  };
+
+  async function handleScan(orderId) {
+    const msg = document.getElementById("scanMsg");
+    try {
+      const orderRef = doc(db, "orders", orderId);
+      const orderSnap = await getDoc(orderRef);
+      if (!orderSnap.exists()) {
+        msg.className = "msg error";
+        msg.innerText = "Invalid order QR";
+        return;
+      }
+      const orderData = orderSnap.data();
+      if (orderData.status === "delivered") {
+        msg.className = "msg error";
+        msg.innerText = "Order already delivered";
+        return;
+      }
+      await updateDoc(orderRef, { status: "delivered", deliveredAt: Date.now(), deliveredBy: distributorId });
+      await addDoc(collection(db, "order_invoices"), {
+        orderId, customerId: orderData.customerId || "", amount: orderData.totalAmount || 0, deliveredAt: Date.now()
+      });
+      msg.className = "msg success";
+      msg.innerText = "Order delivered! Invoice generated.";
+      loadOrders();
+    } catch (err) {
+      msg.className = "msg error";
+      msg.innerText = "Error: " + err.message;
+    }
+  }
+
+  async function loadOrders() {
+    const snap = await getDocs(collection(db, "orders"));
+    let rows = "";
+    snap.forEach(d => {
+      const data = d.data();
+      if (data.distributorId === distributorId) {
+        rows += `<tr><td>${d.id.slice(0,8)}</td><td><span class="badge ${data.status === 'delivered' ? 'delivered' : 'pending'}">${data.status}</span></td></tr>`;
+      }
+    });
+    if (rows) document.getElementById("orderTable").innerHTML = rows;
+  }
+
+  loadOrders();
+</script>
+
+</body>
+</html>
