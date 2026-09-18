@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Oil App - Login</title>
   <style>
     body { font-family: Arial; padding: 20px; }
@@ -46,8 +47,12 @@
           msg.innerText = "No role assigned. Contact admin.";
           return;
         }
-        const role = userSnap.data().role;
-        window.location.href = role + ".html";
+        const data = userSnap.data();
+        localStorage.setItem("uid", uid);
+        localStorage.setItem("role", data.role);
+        localStorage.setItem("branchId", data.branchId || "");
+        localStorage.setItem("distributorId", data.distributorId || "");
+        window.location.href = data.role + ".html";
       } catch (err) {
         msg.innerText = "Error: " + err.message;
       }
