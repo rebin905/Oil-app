@@ -78,8 +78,11 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // NOTE: branchId should come from logged-in user's data. Hardcoded placeholder for now.
-  const branchId = "DEMO_BRANCH_ID";
+  const branchId = localStorage.getItem("branchId") || "";
+
+  if (!branchId) {
+    document.body.innerHTML = "<p style='padding:20px;'>No branch assigned to this account. Please login again or contact admin.</p>";
+  }
 
   window.addDistributor = async function() {
     const name = document.getElementById("dName").value;
@@ -93,7 +96,7 @@
   };
 
   async function loadDistributors() {
-    const snap = await getDocs(collection(db, "distributors"));
+    const snap = await getDocs(query(collection(db, "distributors"), where("branchId", "==", branchId)));
     let rows = "";
     let count = 0;
     snap.forEach(doc => {
@@ -106,7 +109,7 @@
   }
 
   async function loadOrders() {
-    const snap = await getDocs(collection(db, "orders"));
+    const snap = await getDocs(query(collection(db, "orders"), where("branchId", "==", branchId)));
     let pending = 0, delivered = 0;
     let rows = "";
     snap.forEach(doc => {
@@ -120,8 +123,10 @@
     if (rows) document.getElementById("orderTable").innerHTML = rows;
   }
 
-  loadDistributors();
-  loadOrders();
+  if (branchId) {
+    loadDistributors();
+    loadOrders();
+  }
 </script>
 
 </body>
